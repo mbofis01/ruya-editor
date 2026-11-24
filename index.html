@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Rüya Editörü</title>
+<style>
+:root{--bg:#0f1b2d;--card:#fff;--gold:#b8892b;--ink:#1b2433;--mut:#6b7385;--line:#e3e0d8}
+*{box-sizing:border-box}body{margin:0;font:16px/1.6 system-ui,Segoe UI,Roboto,sans-serif;color:var(--ink);background:#f6f3ec}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--gold);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:#fff;color:#a33;border:1px solid #e3b9b9}
+#login{min-height:100vh;display:grid;place-items:center;background:var(--bg);padding:20px}
+#login form{background:#fff;border-radius:14px;padding:32px;width:100%;max-width:360px}
+#login h1{margin:0 0 4px;font-size:22px}#login p{margin:0 0 18px;color:var(--mut);font-size:14px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+input[type=text],input[type=password],textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+#err{color:#a33;font-size:14px;min-height:20px;margin-top:10px}
+#app{display:none;min-height:100vh}
+header{background:var(--bg);color:#fff;padding:12px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;flex:1}header .btn{padding:7px 12px;font-size:14px}
+.layout{display:grid;grid-template-columns:290px 1fr;gap:20px;max-width:1200px;margin:20px auto;padding:0 16px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}}
+.side{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;align-self:start}
+.side button.it{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:8px;font-size:14px;line-height:1.35}
+.side button.it:hover{background:#f3efe4}.side button.it.on{background:#f1e6c8;font-weight:600}
+.side small{color:var(--mut)}.side h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:12px 10px 4px}
+.main{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px}
+.tb{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;position:sticky;top:58px;background:#fff;padding:6px 0;z-index:3}
+.tb button{background:#f6f3ec;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:14px}
+#body{min-height:360px;border:1px solid var(--line);border-radius:8px;padding:16px;outline:none}
+#body h2{font-size:22px;margin:1.2em 0 .4em}#body h3{font-size:18px}
+#body blockquote{border-left:3px solid var(--gold);margin:1em 0;padding:.2em 1em;color:#444;background:#faf6ea}
+#body table{border-collapse:collapse}#body td,#body th{border:1px solid var(--line);padding:6px 10px}
+.row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--mut);margin-top:6px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 18px;border-radius:8px;display:none;z-index:9}
+.dirty{color:#e6b94d;font-size:13px}
+</style></head><body>
+<div id="login"><form id="lf" autocomplete="on">
+<h1>Rüya Editörü</h1><p>Devam etmek için giriş yapın.</p>
+<label for="u">Kullanıcı adı</label><input type="text" id="u" autocomplete="username" required>
+<label for="p">Şifre</label><input type="password" id="p" autocomplete="current-password" required>
+<div id="err" role="alert"></div><button class="btn" style="width:100%;margin-top:6px">Giriş</button></form></div>
+
+<div id="app">
+<header><h1>Rüya Editörü</h1><span id="dirty" class="dirty"></span>
+<button class="btn sec" id="dl">Değişiklikleri indir</button><button class="btn sec" id="out">Çıkış</button></header>
+<div class="layout"><nav class="side" id="side"></nav><section class="main" id="main"></section></div></div>
+<div id="toast"></div>
+<script>
+const HASH="89c92a0954b5c03647b76116a65dd36fca7bbdca56e0f6e15208e3175ad648db",SALT="ruya-editor-v1";
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const $=id=>document.getElementById(id);
+let D=null,cur=null;const LS='ruya-editor-draft-v1';
+function toast(t){const e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2200)}
+function slug(t){const m={ç:'c',ğ:'g',ı:'i',ö:'o',ş:'s',ü:'u',â:'a',î:'i',û:'u'};return t.toLowerCase().replace(/[çğıöşüâîû]/g,c=>m[c]).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+async function boot(){
+  let base=await fetch('data/icerik.json').then(r=>r.json());
+  let d=null;try{d=JSON.parse(localStorage.getItem(LS))}catch(e){}
+  D=d||base;render();setDirty(!!d);
+}
+function setDirty(v){$('dirty').textContent=v?'● Bu tarayıcıda kaydedilmemiş (indirilmemiş) değişiklik var':''}
+function save(){try{localStorage.setItem(LS,JSON.stringify(D))}catch(e){}setDirty(true)}
+function render(){
+  $('side').innerHTML='<button class="btn" style="width:100%;margin-bottom:6px" id="new">+ Yeni yazı</button><h3>Sayfa</h3><button class="it '+(cur==='h'?'on':'')+'" data-k="h">Hakkında kutusu</button><h3>Rüya yazıları</h3>'+
+   D.yazilar.map((a,i)=>'<button class="it '+(cur===i?'on':'')+'" data-k="'+i+'"><small>'+String(a.n).padStart(2,'0')+'</small> '+esc(a.title)+'</button>').join('');
+  $('side').querySelectorAll('.it').forEach(b=>b.onclick=()=>{cur=b.dataset.k==='h'?'h':+b.dataset.k;render()});
+  $('new').onclick=()=>{const n=Math.max(0,...D.yazilar.map(a=>a.n))+1;D.yazilar.push({n,slug:'yeni-yazi-'+n,title:'Yeni yazı',desc:'',body:'<h2>Başlık</h2><p>Metni buraya yazın.</p>'});cur=D.yazilar.length-1;save();render()};
+  if(cur==='h')return hak();if(cur===null)return $('main').innerHTML='<h2 style="margin-top:0">Hoş geldiniz</h2><p>Soldan düzenlemek istediğiniz yazıyı veya <b>Hakkında</b> kutusunu seçin. Yeni yazı için <b>+ Yeni yazı</b> düğmesine basın.</p><p class="note">Düzenlemeler bu tarayıcıda otomatik saklanır. Bitirince üstteki <b>Değişiklikleri indir</b> ile dosyayı indirip gönderin; siteye ben işlerim.</p>';
+  art(D.yazilar[cur]);
+}
+function art(a){
+  $('main').innerHTML='<label>Başlık</label><input type="text" id="t" value="'+esc(a.title)+'"><label>Kısa açıklama (arama sonuçlarında görünür, 140–160 karakter)</label><textarea id="d" rows="2">'+esc(a.desc)+'</textarea><div class="note" id="dc"></div>'+
+  '<label>Adres (otomatik: <code id="sl"></code>)</label><label>Yazı</label><div class="tb">'+
+  [['h2','Başlık'],['h3','Alt başlık'],['p','Paragraf'],['b','Kalın'],['i','İtalik'],['ul','Liste'],['ol','Numaralı'],['q','Alıntı'],['a','Bağlantı'],['x','Biçimi temizle']].map(x=>'<button type="button" data-c="'+x[0]+'">'+x[1]+'</button>').join('')+
+  '</div><div id="body" contenteditable="true">'+a.body+'</div>'+
+  '<div class="row"><button class="btn red" id="del">Yazıyı sil</button></div>';
+  const upd=()=>{$('sl').textContent=slug($('t').value);$('dc').textContent=$('d').value.length+' karakter'};
+  const sync=()=>{a.title=$('t').value;a.desc=$('d').value;a.body=$('body').innerHTML;a.slug=a.slugLocked||slug(a.title)||a.slug;save();upd()};
+  upd();['t','d'].forEach(i=>$(i).oninput=sync);$('body').oninput=sync;
+  document.querySelectorAll('.tb button').forEach(b=>b.onmousedown=e=>{e.preventDefault();const c=b.dataset.c;
+   const f={h2:()=>document.execCommand('formatBlock',false,'h2'),h3:()=>document.execCommand('formatBlock',false,'h3'),p:()=>document.execCommand('formatBlock',false,'p'),b:()=>document.execCommand('bold'),i:()=>document.execCommand('italic'),ul:()=>document.execCommand('insertUnorderedList'),ol:()=>document.execCommand('insertOrderedList'),q:()=>document.execCommand('formatBlock',false,'blockquote'),x:()=>document.execCommand('removeFormat'),a:()=>{const u=prompt('Bağlantı adresi (https://...)');if(u)document.execCommand('createLink',false,u)}}[c];f();sync()});
+  $('body').addEventListener('paste',e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData('text/plain');document.execCommand('insertText',false,t)});
+  $('del').onclick=()=>{if(confirm('Bu yazı silinsin mi?')){D.yazilar.splice(cur,1);cur=null;save();render()}};
+}
+function hak(){
+  const h=D.hakkinda;
+  $('main').innerHTML='<h2 style="margin-top:0">Hakkında kutusu</h2><p class="note">Bünyamin Hoca\'nın tanıtım yazısı. Paragrafları boş satırla ayırın.</p><label>Metin</label><textarea id="hp" rows="12">'+esc(h.paragraflar.join('\n\n'))+'</textarea>'+
+  '<label>Üç kısa kutu (kalın kısım / altındaki küçük yazı)</label>'+h.kutular.map((k,i)=>'<div class="row" style="margin-top:6px"><input type="text" data-i="'+i+'" data-f="baslik" value="'+esc(k.baslik)+'"><input type="text" data-i="'+i+'" data-f="alt" value="'+esc(k.alt)+'"></div>').join('');
+  $('hp').oninput=()=>{h.paragraflar=$('hp').value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);save()};
+  $('main').querySelectorAll('input[data-i]').forEach(i=>i.oninput=()=>{h.kutular[+i.dataset.i][i.dataset.f]=i.value;save()});
+}
+$('dl').onclick=()=>{const b=new Blob([JSON.stringify(D,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ruya-icerik-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('İndirildi. Dosyayı gönderebilirsiniz.')};
+$('out').onclick=()=>{sessionStorage.removeItem('ok');location.reload()};
+async function enter(){$('login').style.display='none';$('app').style.display='block';await boot()}
+$('lf').onsubmit=async e=>{e.preventDefault();const h=await sha(SALT+'|'+$('u').value.trim()+'|'+$('p').value);
+  if(h===HASH){sessionStorage.setItem('ok','1');enter()}else{$('err').textContent='Kullanıcı adı veya şifre hatalı.'}};
+if(sessionStorage.getItem('ok')==='1')enter();
+</script></body></html>
