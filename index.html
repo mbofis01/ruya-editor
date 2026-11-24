@@ -48,7 +48,7 @@ header h1{font-size:18px;margin:0;flex:1}header .btn{padding:7px 12px;font-size:
 
 <div id="app">
 <header><h1>Rüya Editörü</h1><span id="dirty" class="dirty"></span>
-<button class="btn sec" id="dl">Değişiklikleri indir</button><button class="btn sec" id="out">Çıkış</button></header>
+<button class="btn" id="pub" style="background:#2f9e6e">Değişiklikleri yayınla</button><button class="btn sec" id="dl" title="Yayınlamadan yedek dosyası indir">Yedek indir</button><button class="btn sec" id="out">Çıkış</button></header>
 <div class="layout"><nav class="side" id="side"></nav><section class="main" id="main"></section></div></div>
 <div id="toast"></div>
 <script>
@@ -81,18 +81,19 @@ async function loadPages(){
     });
   }catch(e){D.yazilar.forEach(a=>PAGES.push({p:'yazilar/'+a.slug,t:a.title,g:'Rüya yazıları'}))}
 }
-function setDirty(v){$('dirty').textContent=v?'● Bu tarayıcıda indirilmemiş değişiklik var':''}
+function setDirty(v){$('dirty').textContent=v?'● Yayınlanmamış değişiklik var':''}
 function save(){try{localStorage.setItem(LS,JSON.stringify(D))}catch(e){}setDirty(true)}
 function nChanges(){return Object.values(D.degisiklikler).reduce((s,a)=>s+a.length,0)}
 function render(){
   const s=$('side');
-  s.innerHTML='<h3>Düzenle</h3><button class="it '+(mode==='sayfa'?'on':'')+'" data-m="sayfa">Sayfa metinleri <small>(tüm site)</small></button><button class="it '+(mode==='yeni'?'on':'')+'" data-m="yeni">Yeni yazı ekle</button>'+
-   (mode==='yeni'?'<h3>Yeni yazılar</h3>'+(D.yeni.map((a,i)=>'<button class="it '+(cur===i?'on':'')+'" data-k="'+i+'">'+esc(a.title)+'</button>').join('')||'<div class="note" style="margin:6px 10px">Henüz yok.</div>')+'<button class="btn" style="width:100%;margin-top:8px" id="new">+ Yeni yazı</button>':'');
+  s.innerHTML='<h3>Düzenle</h3><button class="it '+(mode==='sayfa'?'on':'')+'" data-m="sayfa">Sayfa metinleri <small>(tüm site)</small></button><button class="it '+(mode==='yeni'?'on':'')+'" data-m="yeni">Yeni makale ekle</button><button class="it '+(mode==='ayar'?'on':'')+'" data-m="ayar">GitHub bağlantısı</button>'+
+   (mode==='yeni'?'<h3>Yayınlanacak makaleler</h3>'+(D.yeni.map((a,i)=>'<button class="it '+(cur===i?'on':'')+'" data-k="'+i+'">'+esc(a.title)+'</button>').join('')||'<div class="note" style="margin:6px 10px">Henüz yok.</div>')+'<button class="btn" style="width:100%;margin-top:8px" id="new">+ Yeni makale</button>':'');
   s.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;cur=null;render()});
   s.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{cur=+b.dataset.k;render()});
-  if($('new'))$('new').onclick=()=>{D.yeni.push({slug:'yeni-yazi-'+(D.yeni.length+1),title:'Yeni yazı',desc:'',body:'<h2>Başlık</h2><p>Metni buraya yazın.</p>'});cur=D.yeni.length-1;save();render()};
+  if($('new'))$('new').onclick=()=>{D.yeni.push({slug:'yeni-yazi-'+(D.yeni.length+1),title:'Yeni makale',desc:'',body:'<h2>Başlık</h2><p>Metni buraya yazın.</p>'});cur=D.yeni.length-1;save();render()};
+  if(mode==='ayar')return ayar();
   if(mode==='sayfa')return visual();
-  if(cur===null)return $('main').innerHTML='<h2 style="margin-top:0">Yeni yazı ekle</h2><p>Sol taraftaki <b>+ Yeni yazı</b> düğmesiyle sıfırdan bir yazı oluşturun. Var olan yazıların metnini değiştirmek için <b>Sayfa metinleri</b> bölümünü kullanın.</p>';
+  if(cur===null)return $('main').innerHTML='<h2 style="margin-top:0">Yeni makale ekle</h2><p>Sol taraftaki <b>+ Yeni makale</b> düğmesiyle sıfırdan bir makale yazın. Makale <b>Rüya yazıları</b> bölümünün sonuna eklenir; kendi sayfası, ana sayfada kartı ve site haritası kaydı otomatik oluşur. Var olan yazıları değiştirmek için <b>Sayfa metinleri</b> bölümünü kullanın.</p><p class="note">Hazır olunca üstteki <b>Değişiklikleri yayınla</b> düğmesine basın.</p>';
   art(D.yeni[cur]);
 }
 /* ---------- görsel sayfa editörü ---------- */
@@ -103,7 +104,7 @@ function visual(){
   const groups={};PAGES.forEach(p=>(groups[p.g]=groups[p.g]||[]).push(p));
   $('main').innerHTML='<div class="row" style="margin-top:0"><select id="ps">'+Object.keys(groups).map(g=>'<optgroup label="'+g+'">'+groups[g].map(p=>'<option value="'+esc(p.p)+'">'+esc(p.t)+'</option>').join('')+'</optgroup>').join('')+'</select>'+
    '<button class="btn sec" id="mb">'+(mob?'Bilgisayar görünümü':'Telefon görünümü')+'</button><button class="btn red" id="rs">Bu sayfadaki değişiklikleri sıfırla</button><span class="cnt" id="cn"></span></div>'+
-   '<div class="tip" style="margin:10px 0">Düzenlemek istediğiniz yazıya doğrudan tıklayıp yazın. Değişen yerler yeşil çerçeveyle işaretlenir. Satır başı (Enter) kapalıdır; sayfanın düzeni bozulmaz. Bitirince üstteki <b>Değişiklikleri indir</b> ile dosyayı indirin.</div><iframe id="vf" sandbox="allow-same-origin" title="Sayfa"></iframe>';
+   '<div class="tip" style="margin:10px 0">Düzenlemek istediğiniz yazıya doğrudan tıklayıp yazın. Değişen yerler yeşil çerçeveyle işaretlenir. Satır başı (Enter) kapalıdır; sayfanın düzeni bozulmaz. Bitirince üstteki <b>Değişiklikleri yayınla</b> düğmesine basın; değişiklikler doğrudan siteye gönderilir.</div><iframe id="vf" sandbox="allow-same-origin" title="Sayfa"></iframe>';
   $('ps').value=pageSel||PAGES[0].p;pageSel=$('ps').value;
   $('ps').onchange=()=>{pageSel=$('ps').value;openPage()};
   $('mb').onclick=()=>{mob=!mob;$('vf').classList.toggle('mob',mob);$('mb').textContent=mob?'Bilgisayar görünümü':'Telefon görünümü'};
@@ -121,14 +122,18 @@ async function openPage(){
   f.onload=()=>setup(f.contentDocument,path);
   f.srcdoc=html;
 }
-function setup(doc,path){
-  const saved=D.degisiklikler[path]||[];const chosen=[];
+function pick(doc){
+  const chosen=[];
   [...doc.body.querySelectorAll(CAND)].forEach(el=>{
     if(el.closest(SKIP)||chosen.some(c=>c.contains(el)))return;
     if(el.querySelector(BLOCK))return;
     if(!norm(el.textContent))return;
     chosen.push(el);
   });
+  return chosen;
+}
+function setup(doc,path){
+  const saved=D.degisiklikler[path]||[];const chosen=pick(doc);
   chosen.forEach(el=>{
     el.dataset.ed='1';el._ot=norm(el.textContent);el._oh=el.innerHTML;
     const hit=saved.find(c=>c.ot===el._ot);
@@ -160,11 +165,124 @@ function art(a){
   const upd=()=>{$('sl').textContent=slug($('t').value);$('dc').textContent=$('d').value.length+' karakter'};
   const sync=()=>{a.title=$('t').value;a.desc=$('d').value;a.body=$('body').innerHTML;a.slug=slug(a.title)||a.slug;save();upd()};
   upd();['t','d'].forEach(i=>$(i).oninput=sync);$('body').oninput=sync;
+  document.execCommand('defaultParagraphSeparator',false,'p');
   const E=(c,v)=>document.execCommand(c,false,v);
   document.querySelectorAll('.tb button').forEach(b=>b.onmousedown=e=>{e.preventDefault();({h2:()=>E('formatBlock','h2'),h3:()=>E('formatBlock','h3'),p:()=>E('formatBlock','p'),b:()=>E('bold'),i:()=>E('italic'),ul:()=>E('insertUnorderedList'),ol:()=>E('insertOrderedList'),q:()=>E('formatBlock','blockquote'),x:()=>E('removeFormat'),a:()=>{const u=prompt('Bağlantı adresi (https://...)');if(u)E('createLink',u)}})[b.dataset.c]();sync()});
   $('body').addEventListener('paste',e=>{e.preventDefault();E('insertText',(e.clipboardData||window.clipboardData).getData('text/plain'))});
   $('del').onclick=()=>{if(confirm('Bu yazı silinsin mi?')){D.yeni.splice(cur,1);cur=null;save();render()}};
 }
+
+/* ---------- GitHub'a yayınla ---------- */
+const GH_KEY='ruya-editor-gh-v1';
+const AYLAR=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+function ghCfg(){try{return Object.assign({repo:'mbofis01/ruya',branch:'main'},JSON.parse(localStorage.getItem(GH_KEY))||{})}catch(e){return {repo:'mbofis01/ruya',branch:'main'}}}
+async function gh(path,opt){opt=opt||{};const c=ghCfg();
+  const r=await fetch('https://api.github.com/repos/'+c.repo+path,Object.assign({},opt,{headers:{'Authorization':'Bearer '+c.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'}}));
+  if(!r.ok){let m='';try{m=(await r.json()).message}catch(e){}throw new Error(r.status+' '+m)}
+  return r.json()}
+const dec=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+const ser=doc=>'<!doctype html>\n'+doc.documentElement.outerHTML+'\n';
+const parse=t=>new DOMParser().parseFromString(t,'text/html');
+function ayar(){
+  const c=ghCfg();
+  $('main').innerHTML='<h2 style="margin-top:0">GitHub bağlantısı</h2><p>Değişiklikleri doğrudan siteye göndermek için bir kez bağlantı kurulur. Bilgiler yalnızca bu tarayıcıda saklanır.</p>'+
+  '<div class="tip"><b>Anahtar (token) nasıl alınır?</b><ol style="margin:6px 0 0 18px;padding:0"><li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a> adresini açın.</li><li>Ad: <i>ruya-editor</i>. Süre: istediğiniz (ör. 1 yıl).</li><li><b>Repository access → Only select repositories → ruya</b> seçin.</li><li><b>Permissions → Repository permissions → Contents → Read and write</b> yapın.</li><li><b>Generate token</b> ile oluşturup çıkan anahtarı aşağıya yapıştırın.</li></ol></div>'+
+  '<label>Depo (kullanıcı/depo)</label><input type="text" id="gr" value="'+esc(c.repo)+'"><label>Dal</label><input type="text" id="gb" value="'+esc(c.branch)+'"><label>Anahtar (token)</label><input type="password" id="gt" value="'+esc(c.token||'')+'" autocomplete="off" placeholder="github_pat_...">'+
+  '<div class="row"><button class="btn" id="gs">Kaydet ve dene</button><button class="btn red" id="gx">Anahtarı sil</button></div><div class="note" id="gm"></div>';
+  $('gs').onclick=async()=>{localStorage.setItem(GH_KEY,JSON.stringify({repo:$('gr').value.trim(),branch:$('gb').value.trim()||'main',token:$('gt').value.trim()}));
+    $('gm').textContent='Deneniyor…';try{const r=await gh('');$('gm').textContent=r.permissions&&r.permissions.push===false?'Bağlandı ama yazma izni yok. Contents: Read and write olmalı.':'✓ Bağlantı çalışıyor: '+r.full_name}catch(e){$('gm').textContent='Hata: '+e.message}};
+  $('gx').onclick=()=>{localStorage.removeItem(GH_KEY);ayar()};
+}
+function sanitize(html){
+  const d=parse('<body>'+html+'</body>');const b=d.body;
+  b.querySelectorAll('script,style,iframe,object,embed,link,meta,form').forEach(e=>e.remove());
+  b.querySelectorAll('*').forEach(e=>{[...e.attributes].forEach(a=>{const n=a.name.toLowerCase();
+    if(n==='href'){if(!/^(https?:|mailto:|#|\/|\.)/i.test(a.value.trim()))e.removeAttribute(n)}
+    else if(!['colspan','rowspan','id'].includes(n))e.removeAttribute(n)});
+    if(e.tagName==='A'&&/^https?:/i.test(e.getAttribute('href')||''))e.setAttribute('rel','noopener')});
+  b.querySelectorAll('div').forEach(e=>{const p=d.createElement(e.querySelector('p,h2,h3,ul,ol,table,blockquote')?'div':'p');p.innerHTML=e.innerHTML;e.replaceWith(p)});
+  [...b.childNodes].forEach(n=>{if(n.nodeType===3&&n.textContent.trim()){const p=d.createElement('p');p.textContent=n.textContent.trim();n.replaceWith(p)}});
+  b.querySelectorAll('p').forEach(p=>{if(!p.textContent.trim()&&!p.querySelector('img'))p.remove()});
+  return b.innerHTML.trim();
+}
+function makeArticle(tpl,a,slug,prev,today){
+  const doc=parse(tpl),url=SITE+'yazilar/'+slug+'/',title=a.title.trim(),desc=(a.desc||'').trim(),full=title+' | Bünyamin Hoca';
+  doc.title=full;
+  const setM=(sel,v)=>{const e=doc.querySelector(sel);if(e)e.setAttribute('content',v)};
+  setM('meta[name="description"]',desc);setM('meta[property="og:title"]',full);setM('meta[property="og:description"]',desc);setM('meta[property="og:url"]',url);setM('meta[name="twitter:title"]',full);setM('meta[name="twitter:description"]',desc);
+  doc.querySelector('link[rel="canonical"]').setAttribute('href',url);
+  const ld=doc.querySelector('script[type="application/ld+json"]');
+  if(ld){const j=JSON.parse(ld.textContent);const ar=j['@graph'][0];ar.headline=title;ar.description=desc;ar.dateModified=today.iso;ar.mainEntityOfPage=url;j['@graph'][1].itemListElement[2].name=title;ld.textContent=JSON.stringify(j)}
+  doc.querySelector('.crumbs b').textContent=title;
+  const h=doc.querySelector('.sub-hero');h.querySelector('small').textContent='RÜYA YAZILARI';h.querySelector('h1').textContent=title;
+  h.querySelector('h1').nextElementSibling.textContent=desc;
+  const m=h.querySelector('.art-meta');if(m)m.innerHTML='Yazan: <strong>Bünyamin Hoca</strong> · Son güncelleme: '+today.tr;
+  const w=doc.querySelector('.art-wrap');w.className='art-wrap solo';w.querySelector('article.art').innerHTML=sanitize(a.body);
+  const pn=doc.querySelector('.prevnext');
+  if(pn)pn.innerHTML=prev?'<a class="pn prev" href="../../yazilar/'+prev.slug+'/"><small>← Önceki yazı</small><span>'+esc(prev.title)+'</span></a>':'';
+  return ser(doc);
+}
+async function publish(){
+  const c=ghCfg();
+  if(!c.token){mode='ayar';cur=null;render();return toast('Önce GitHub bağlantısını kurun.')}
+  const nCh=nChanges(),nNew=D.yeni.length;
+  if(!nCh&&!nNew)return toast('Yayınlanacak değişiklik yok.');
+  if(D.yeni.some(a=>!a.title.trim()||a.title==='Yeni makale')&&!confirm('Başlığı değiştirilmemiş bir makale var. Yine de yayınlansın mı?'))return;
+  if(!confirm('Yayınlanacak: '+nCh+' metin değişikliği, '+nNew+' yeni makale. Devam edilsin mi?'))return;
+  const btn=$('pub');btn.disabled=true;const say=t=>btn.textContent=t;
+  try{
+    say('Hazırlanıyor…');
+    const files={},fetched={};
+    const getRaw=async p=>{if(fetched[p]===undefined){const j=await gh('/contents/'+p.split('/').map(encodeURIComponent).join('/')+'?ref='+encodeURIComponent(c.branch));fetched[p]=dec(j.content)}return fetched[p]};
+    const getF=async p=>{if(!files[p])files[p]={text:await getRaw(p)};return files[p]};
+    let miss=0,ok=0;
+    for(const pg of Object.keys(D.degisiklikler)){
+      const f=await getF((pg?pg+'/':'')+'index.html');const doc=parse(f.text);const els=pick(doc);
+      D.degisiklikler[pg].forEach(ch=>{const el=els.find(e=>norm(e.textContent)===ch.ot);if(el){el.innerHTML=ch.nh;ok++}else miss++});
+      f.text=ser(doc);f.dirty=true;
+    }
+    if(nNew){
+      const nowD=new Date(),today={iso:nowD.toISOString().slice(0,10),tr:nowD.getDate()+' '+AYLAR[nowD.getMonth()]+' '+nowD.getFullYear()};
+      const idx=await getF('index.html'),sm=await getF('sitemap.xml');
+      const idoc=parse(idx.text);const cards=[...idoc.querySelectorAll('a.enc-card[href^="yazilar/"]')];
+      if(!cards.length)throw new Error('Ana sayfada yazı kartları bulunamadı.');
+      const grid=cards[0].parentElement;
+      let n=cards.length;const last=cards[cards.length-1];
+      let prev={slug:last.getAttribute('href').split('/')[1],title:last.querySelector('h3').textContent};
+      const tpl=await getRaw('yazilar/'+prev.slug+'/index.html');
+      const used=new Set(cards.map(x=>x.getAttribute('href').split('/')[1]));
+      for(const a of D.yeni){
+        const slg=slug(a.title)||('yazi-'+(n+1));
+        if(used.has(slg))throw new Error('Bu başlıkla bir yazı zaten var: '+a.title);
+        used.add(slg);n++;
+        files['yazilar/'+slg+'/index.html']={text:makeArticle(tpl,a,slg,prev,today),dirty:true};
+        // önceki yazıya "sonraki" bağlantısı
+        const pf=await getF('yazilar/'+prev.slug+'/index.html');const pd=parse(pf.text);const pn=pd.querySelector('.prevnext');
+        if(pn){pn.querySelector('a.next')&&pn.querySelector('a.next').remove();pn.insertAdjacentHTML('beforeend','<a class="pn next" href="../../yazilar/'+slg+'/"><small>Sonraki yazı →</small><span>'+esc(a.title)+'</span></a>');pf.text=ser(pd);pf.dirty=true}
+        const card=idoc.createElement('template');card.innerHTML='<a class="enc-card reveal" href="yazilar/'+slg+'/"><span class="no">'+n+'</span><h3>'+esc(a.title)+'</h3><p>'+esc(a.desc||'')+'</p><span class="more">Yazıyı oku →</span></a>';
+        grid.appendChild(card.content.firstChild);
+        sm.text=sm.text.replace('</urlset>','  <url><loc>'+SITE+'yazilar/'+slg+'/</loc><lastmod>'+today.iso+'</lastmod></url>\n</urlset>');sm.dirty=true;
+        prev={slug:slg,title:a.title};
+      }
+      idx.text=ser(idoc);idx.dirty=true;
+    }
+    say('Gönderiliyor…');
+    const ref=await gh('/git/ref/heads/'+c.branch);const bc=await gh('/git/commits/'+ref.object.sha);
+    const tree=[];
+    for(const p of Object.keys(files)){if(!files[p].dirty)continue;
+      const b=await gh('/git/blobs',{method:'POST',body:JSON.stringify({content:files[p].text,encoding:'utf-8'})});
+      tree.push({path:p,mode:'100644',type:'blob',sha:b.sha})}
+    const t=await gh('/git/trees',{method:'POST',body:JSON.stringify({base_tree:bc.tree.sha,tree})});
+    const cm=await gh('/git/commits',{method:'POST',body:JSON.stringify({message:'Editör: içerik güncellemesi ('+tree.length+' dosya)',tree:t.sha,parents:[ref.object.sha]})});
+    await gh('/git/refs/heads/'+c.branch,{method:'PATCH',body:JSON.stringify({sha:cm.sha})});
+    D.degisiklikler={};D.yeni=[];try{localStorage.removeItem(LS)}catch(e){}setDirty(false);cur=null;
+    toast('Yayınlandı: '+tree.length+' dosya'+(miss?' · '+miss+' değişiklik uygulanamadı':'')+'. Site 1–2 dakikada güncellenir.');
+    window.__pubResult={files:tree.length,ok,miss};
+    render();
+  }catch(e){toast('Yayınlanamadı: '+e.message);console.error(e)}
+  finally{btn.disabled=false;say('Değişiklikleri yayınla')}
+}
+$('pub').onclick=publish;
 $('dl').onclick=()=>{
   const out={surum:2,tarih:new Date().toISOString(),sayfa_degisiklikleri:D.degisiklikler,yeni_yazilar:D.yeni};
   const b=new Blob([JSON.stringify(out,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ruya-degisiklikler-'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('İndirildi. Dosyayı gönderebilirsiniz.')};
